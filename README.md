@@ -1,0 +1,2 @@
+# mscheck
+Check Metastock folders
