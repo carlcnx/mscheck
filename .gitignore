@@ -250,3 +250,10 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
+/env
+/dist
+/mscheck.egg-info
+/__pycache__
+/check.txt
+*.pyc
+/build/lib
