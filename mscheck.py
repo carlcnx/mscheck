@@ -21,6 +21,7 @@ def CheckStock(stock):
 		stock: Stock to check
 	"""
 # Read stock data
+#	print("{0} {1}".format(stock.symbol, stock.name))
 	close1 = 0
 	for bar in stock:
 		try:

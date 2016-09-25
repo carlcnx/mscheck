@@ -12,13 +12,12 @@ GPL Licensed : Please read the enclosed license in COPYING
 
 """
 
+import sys
 import struct
 import datetime
 import os.path
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+
+PY2X = sys.version_info < (3, 0)
 
 
 def reader(incoming_bytes):
@@ -35,24 +34,23 @@ def clampindex(idx, size):
     return idx
 
 
-def fmsbin2ieee(bytes):
+def fmsbin2ieee(field):
     """
     Convert an array of 4 bytes containing Microsoft Binary floating point
     number to IEEE floating point format (which is used by Python)
     """
-    as_int = struct.unpack("i", bytes)
+    as_int = struct.unpack("i", field)
     if not as_int:
         return 0.0
-    man = long(struct.unpack('H', bytes[2:])[0])
+
+    man = int(struct.unpack('H', field[2:])[0])
     if not man:
         return 0.0
     exp = (man & 0xff00) - 0x0200
     man = man & 0x7f | (man << 8) & 0x8000
     man |= exp >> 1
 
-    bytes2 = bytes[:2]
-    bytes2 += chr(man & 255)
-    bytes2 += chr((man >> 8) & 255)
+    bytes2 = field[:2] + bytearray([man & 255, (man >> 8) & 255])
     return struct.unpack("f", bytes2)[0]
 
 
@@ -62,8 +60,8 @@ def float2date(date):
     Here we convert it to a python datetime.date object.
     """
     date = int(date)
-    year = 1900 + (date / 10000)
-    month = (date % 10000) / 100
+    year = int(1900 + (date / 10000))
+    month = int((date % 10000) / 100)
     day = date % 100
     return datetime.date(year, month, day)
 
@@ -100,7 +98,11 @@ def c_uint(x):
 
 
 def ms_str(x):
-    return x.strip('\x00 \t\nda')
+    if PY2X:
+        return x.strip('\x00 \t\nda')
+    else:
+        text = x.decode('iso-8859-1')
+        return text.strip('\x00 \t\nda')
 
 
 def ms_em_date(x):
@@ -219,7 +221,7 @@ def map_record(record, fmt):
             out[field] = dmap.f(record[dmap.i])
         return out
     except Exception as e:
-        print("Failed to add '{0}' to {1}".format(field, out))
+        print("{0}: Failed to add '{1}' to {2}".format(type(e).__name__, field, out))
         raise
 
 
@@ -252,6 +254,9 @@ class MSFile(object):
             fmt = self.fmt.record
             data = fmt.read(self.fh)
             return(map_record(data, fmt))
+
+
+    __next__ = next # Python 3.X compatibility
 
     def __getitem__(self, idx):
         idx = clampindex(idx, self.record_count)
@@ -332,6 +337,8 @@ class MSDirectory:
                 pass
         raise(StopIteration)
 
+    __next__ = next # Python 3.X compatibility
+
     def __getitem__(self, idx):
         try:
             idx = clampindex(idx, self.record_count)
@@ -341,7 +348,7 @@ class MSDirectory:
                 record = self.xmaster[idx - 255]
             return MSStock(record, self.path)
         except Exception as e:
-            print(e)
+            print('{0}: {1}'.format(type(e).__name__, e))
 
     def __repr__(self):
         return "{0} ({1})".format(self.path, self.record_count)
